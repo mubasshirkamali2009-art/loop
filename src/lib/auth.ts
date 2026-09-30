@@ -1,23 +1,31 @@
+const dns = require("node:dns");
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 
-// Sanitize baseURL (strip any inline comments like # Base URL)
-let baseURL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-if (baseURL.includes("#")) {
-  baseURL = baseURL.split("#")[0].trim();
+/**
+ * Strip inline "# comments" from an env value.
+ * Only strips when "#" is preceded by whitespace, so values that legitimately
+ * contain "#" (e.g. inside a password) are left untouched.
+ */
+function cleanEnv(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value.replace(/\s+#.*$/, "").trim() || undefined;
 }
 
-// Sanitize secret
-let secret = process.env.BETTER_AUTH_SECRET || "default_fallback_secret_32_characters_long";
-if (secret.includes("#")) {
-  secret = secret.split("#")[0].trim();
+const isProd = process.env.NODE_ENV === "production";
+
+const baseURL = cleanEnv(process.env.BETTER_AUTH_URL) ?? "http://localhost:3000";
+
+const secret = cleanEnv(process.env.BETTER_AUTH_SECRET);
+if (!secret && isProd) {
+  throw new Error("BETTER_AUTH_SECRET is required in production");
 }
 
-// Sanitize MongoDB URI
-let uri = process.env.MONGO_DB_URI || "mongodb://localhost:27017/database";
-if (uri.includes("#")) {
-  uri = uri.split("#")[0].trim();
+const uri = cleanEnv(process.env.MONGO_DB_URI);
+if (!uri) {
+  throw new Error("MONGO_DB_URI is not set");
 }
 
 declare global {
@@ -25,11 +33,10 @@ declare global {
   var _mongoClient: MongoClient | undefined;
 }
 
+// Reuse the client across hot reloads in dev so connections don't pile up.
 let client: MongoClient;
-if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClient) {
-    global._mongoClient = new MongoClient(uri);
-  }
+if (!isProd) {
+  global._mongoClient ??= new MongoClient(uri);
   client = global._mongoClient;
 } else {
   client = new MongoClient(uri);
@@ -37,28 +44,31 @@ if (process.env.NODE_ENV === "development") {
 
 const db = client.db("loop");
 
+const googleClientId = cleanEnv(process.env.GOOGLE_CLIENT_ID);
+const googleClientSecret = cleanEnv(process.env.GOOGLE_CLIENT_SECRET);
+
 export const auth = betterAuth({
-  secret,
+  secret: secret ?? "dev_only_secret_change_me_32_chars_min",
   baseURL,
   emailAndPassword: {
     enabled: true,
   },
   socialProviders: {
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ...(googleClientId && googleClientSecret
       ? {
-          google: {
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          },
-        }
+        google: {
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        },
+      }
       : {}),
   },
-  database: mongodbAdapter(db, {
-    client,
-    transaction: false,
-  }),
+  // No `client` passed => transactions are off, which is what you want on a
+  // standalone (non-replica-set) MongoDB.
+  database: mongodbAdapter(db),
   onAPIError: {
-    throw: true,
+    // Removed `throw: true` so errors return proper HTTP responses
+    // instead of crashing the route handler with a 500.
     onError(error) {
       console.error("[BetterAuth API Error]:", error);
     },
