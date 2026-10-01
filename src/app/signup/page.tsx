@@ -1,4 +1,7 @@
 "use client";
+const dns = require("node:dns");
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
 
 import { useState } from "react";
 import Link from "next/link";
@@ -274,11 +277,10 @@ export default function SignupPage() {
                     <button
                       type="button"
                       onClick={() => setImageMode("upload")}
-                      className={`flex items-center gap-1 rounded-md px-2 py-1 font-semibold transition-colors ${
-                        imageMode === "upload"
-                          ? "bg-red-600 text-white"
-                          : "text-zinc-400 hover:text-white"
-                      }`}
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 font-semibold transition-colors ${imageMode === "upload"
+                        ? "bg-red-600 text-white"
+                        : "text-zinc-400 hover:text-white"
+                        }`}
                     >
                       <UploadCloud size={12} />
                       <span>Upload (ImgBB)</span>
@@ -286,11 +288,10 @@ export default function SignupPage() {
                     <button
                       type="button"
                       onClick={() => setImageMode("url")}
-                      className={`flex items-center gap-1 rounded-md px-2 py-1 font-semibold transition-colors ${
-                        imageMode === "url"
-                          ? "bg-red-600 text-white"
-                          : "text-zinc-400 hover:text-white"
-                      }`}
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 font-semibold transition-colors ${imageMode === "url"
+                        ? "bg-red-600 text-white"
+                        : "text-zinc-400 hover:text-white"
+                        }`}
                     >
                       <Link2 size={12} />
                       <span>Image Link</span>

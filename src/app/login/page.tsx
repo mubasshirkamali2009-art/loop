@@ -1,19 +1,22 @@
 "use client";
+const dns = require("node:dns");
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-  Sparkles, 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  Loader2, 
-  TrendingUp, 
-  BarChart2, 
-  CheckCircle2 
+import {
+  Sparkles,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Loader2,
+  TrendingUp,
+  BarChart2,
+  CheckCircle2
 } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 
@@ -79,7 +82,7 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute bottom-0 right-0 h-[400px] w-[500px] bg-red-900/10 blur-[150px] rounded-full" />
 
       {/* Grid Pattern overlay */}
-      <div 
+      <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage: `radial-gradient(circle, #fff 1px, transparent 1px)`,
