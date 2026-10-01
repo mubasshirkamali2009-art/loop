@@ -120,9 +120,11 @@ export default function ReportsPage() {
                         <Calendar size={12} /> {report.period}
                       </span>
                     </div>
-                    <h3 className="text-base font-bold text-white group-hover:text-red-400 transition-colors">
-                      {report.title}
-                    </h3>
+                    <Link href={`/reports/${report.id}`}>
+                      <h3 className="text-base font-bold text-white group-hover:text-red-400 transition-colors hover:underline">
+                        {report.title}
+                      </h3>
+                    </Link>
                     <p className="text-xs text-zinc-400">
                       Primary Theme: <span className="text-zinc-200">{report.topTheme}</span> • Volume:{" "}
                       <span className="text-zinc-200">{report.totalFeedback}</span>

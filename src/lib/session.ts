@@ -1,0 +1,59 @@
+/**
+ * Server-side session helper for API route handlers.
+ * Returns the current user + their organization membership.
+ */
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { headers } from "next/headers";
+
+export interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
+}
+
+export interface OrgMembership {
+  organizationId: string;
+  organizationName: string;
+  role: string;
+}
+
+export async function getSessionUser(): Promise<SessionUser | null> {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session?.user) return null;
+    return {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      image: session.user.image ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getUserMembership(userId: string): Promise<OrgMembership | null> {
+  try {
+    const membership =
+      (await db.collection("memberships").findOne({ userId })) ||
+      (await db.collection("member").findOne({ userId }));
+    if (!membership) return null;
+
+    const orgId = membership.organizationId;
+    const org =
+      (await db.collection("organizations").findOne({ _id: orgId })) ||
+      (await db.collection("organization").findOne({ _id: orgId }));
+
+    return {
+      organizationId: String(membership.organizationId),
+      organizationName: org?.name ?? "Unknown Org",
+      role: membership.role ?? "viewer",
+    };
+  } catch {
+    return null;
+  }
+}

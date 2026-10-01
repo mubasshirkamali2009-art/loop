@@ -91,6 +91,39 @@ export default function Sidebar({
                 ? activeTab === item.id
                 : pathname === item.href;
 
+              if (item.href.startsWith("/") && !item.href.includes("tab=") && item.id !== "overview") {
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    onClick={onClose}
+                    className={`group relative flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all ${
+                      isSelected
+                        ? "bg-red-500/10 text-red-400 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+                        : "text-zinc-400 hover:bg-zinc-900/70 hover:text-zinc-200 border border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        size={16}
+                        className={
+                          isSelected
+                            ? "text-red-400"
+                            : "text-zinc-500 group-hover:text-red-400/80 transition-colors"
+                        }
+                      />
+                      <span>{item.name}</span>
+                    </div>
+
+                    {item.badge && (
+                      <span className="rounded-md bg-red-600/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400 border border-red-500/30">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              }
+
               return onSelectTab ? (
                 <button
                   key={item.id}

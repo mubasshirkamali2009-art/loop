@@ -101,11 +101,11 @@ export default function FeedbackPage() {
 
             <div className="flex items-center gap-3">
               <Link
-                href="/feedback/new"
+                href="/ai_chat"
                 className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-red-950/60 ring-1 ring-red-500/50 hover:from-red-500 hover:to-red-600 transition-all cursor-pointer"
               >
                 <PlusCircle size={15} />
-                <span>Submit Feedback</span>
+                <span>Submit / Analyze Feedback</span>
               </Link>
             </div>
           </div>
@@ -145,9 +145,10 @@ export default function FeedbackPage() {
           {/* Records Table / List */}
           <div className="space-y-3">
             {filtered.map((item) => (
-              <div
+              <Link
                 key={item.id}
-                className="rounded-2xl border border-zinc-800/70 bg-zinc-900/30 p-5 backdrop-blur-sm transition-all hover:border-red-500/30 hover:bg-zinc-900/60"
+                href={`/feedback/${item.id}`}
+                className="block group rounded-2xl border border-zinc-800/70 bg-zinc-900/30 p-5 backdrop-blur-sm transition-all hover:border-red-500/40 hover:bg-zinc-900/60"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/60">
                   <div className="flex items-center gap-2.5">
@@ -182,7 +183,7 @@ export default function FeedbackPage() {
                 <p className="mt-3 text-xs sm:text-sm text-zinc-300 leading-relaxed">
                   &quot;{item.text}&quot;
                 </p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_SERVER_URL || "";
 
 export async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;

@@ -20,7 +20,14 @@ import OrgOnboarding from "@/components/OrgOnboarding";
 import { fetchFromApi } from "@/lib/api";
 
 type Sentiment = "positive" | "neutral" | "negative";
-type ChatMsg = { sender: "ai" | "user"; text: string; time: string; sources?: string[]; error?: boolean };
+type ChatMsg = {
+  sender: "ai" | "user";
+  text: string;
+  time: string;
+  sources?: string[];
+  error?: boolean;
+  failedQuery?: string;
+};
 type Analysis = { text: string; sentiment: Sentiment; themes: string[]; summary: string };
 type Membership = { organizationName: string; role: string } | null;
 type Stats = {
@@ -106,6 +113,37 @@ export default function AiChatPage() {
       }
       setMembership(me.membership);
       setStats(await fetchFromApi("/api/analytics"));
+
+      // Load persisted chat history from MongoDB
+      try {
+        const histData = await fetchFromApi("/api/ai/query");
+        if (histData?.history && Array.isArray(histData.history) && histData.history.length > 0) {
+          const restoredMsgs: ChatMsg[] = [];
+          for (const item of histData.history) {
+            if (item.question) {
+              restoredMsgs.push({
+                sender: "user",
+                text: item.question,
+                time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Earlier",
+              });
+            }
+            if (item.answer) {
+              restoredMsgs.push({
+                sender: "ai",
+                text: item.answer,
+                time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Earlier",
+                sources: item.basedOn ? [`${item.basedOn} verified records`] : undefined,
+              });
+            }
+          }
+          if (restoredMsgs.length > 0) {
+            setMessages(restoredMsgs);
+          }
+        }
+      } catch (histErr) {
+        console.warn("Could not load previous chat history:", histErr);
+      }
+
       setBoot("ready");
     } catch (e) {
       setBootError(e instanceof Error ? e.message : "Could not reach the server.");
@@ -134,13 +172,15 @@ export default function AiChatPage() {
     "Which themes get the most positive feedback?",
   ];
 
-  async function handleSend(textToSend?: string) {
+  async function handleSend(textToSend?: string, isRetry = false) {
     const query = (textToSend ?? input).trim();
     if (!query || isTyping) return;
 
     const history = messages.slice(-6).map((m) => ({ sender: m.sender, text: m.text }));
-    setMessages((prev) => [...prev, { sender: "user", text: query, time: now() }]);
-    setInput("");
+    if (!isRetry) {
+      setMessages((prev) => [...prev, { sender: "user", text: query, time: now() }]);
+      setInput("");
+    }
     setIsTyping(true);
 
     try {
@@ -155,11 +195,24 @@ export default function AiChatPage() {
     } catch (e) {
       setMessages((prev) => [
         ...prev,
-        { sender: "ai", text: e instanceof Error ? e.message : "Something went wrong.", time: now(), error: true },
+        {
+          sender: "ai",
+          text: e instanceof Error ? e.message : "Something went wrong.",
+          time: now(),
+          error: true,
+          failedQuery: query,
+        },
       ]);
     } finally {
       setIsTyping(false);
     }
+  }
+
+  function retryQuery(failedQuery?: string) {
+    if (!failedQuery) return;
+    // Remove the failed AI message before retrying
+    setMessages((prev) => prev.filter((m) => m.failedQuery !== failedQuery));
+    handleSend(failedQuery, true);
   }
 
   async function analyzeReviews() {
@@ -343,6 +396,19 @@ export default function AiChatPage() {
                       }`}
                   >
                     <RichText text={msg.text} />
+
+                    {msg.error && msg.failedQuery && (
+                      <div className="mt-3 flex items-center justify-between border-t border-red-500/20 pt-2">
+                        <span className="text-[10px] text-red-400">Request failed</span>
+                        <button
+                          onClick={() => retryQuery(msg.failedQuery)}
+                          className="flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-950/40 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-900/60 hover:text-white transition-all cursor-pointer"
+                        >
+                          <RefreshCw size={12} />
+                          <span>Retry</span>
+                        </button>
+                      </div>
+                    )}
 
                     {msg.sources && msg.sources.length > 0 && (
                       <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-zinc-800/80 pt-2 text-[10px] text-zinc-400">

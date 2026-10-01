@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { fetchFromApi } from "@/lib/api";
 import {
   MessageSquareQuote,
   TrendingUp,
@@ -23,7 +24,8 @@ import {
   Menu,
   FileText,
   UserPlus,
-  Send
+  Send,
+  Loader2
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import KpiCard from "@/components/Kpicard";
@@ -32,9 +34,86 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "feedback" | "reports" | "organization">("overview");
 
+  // Dynamic database states
+  const [dynOrg, setDynOrg] = useState({
+    name: "Zidio Development",
+    plan: "Enterprise Tier",
+    tenantIsolation: "PostgreSQL & MongoDB Multi-Tenant",
+    seatsTotal: 20,
+    quotaUsed: 84200,
+    quotaTotal: 100000,
+  });
+  const [dynStats, setDynStats] = useState({
+    total: 2490,
+    sentiment: { positive: 1788, neutral: 423, negative: 279 },
+    topThemes: [
+      { theme: "Dashboard Speed & UI", count: 412 },
+      { theme: "AI Sentiment Accuracy", count: 320 },
+      { theme: "Billing & Tier Options", count: 185 },
+      { theme: "Report Export Latency", count: 94 },
+    ],
+  });
+  const [dynFeedback, setDynFeedback] = useState<
+    Array<{
+      id: string;
+      customer: string;
+      org: string;
+      channel: string;
+      sentiment: string;
+      score: number;
+      theme: string;
+      content: string;
+      date: string;
+    }>
+  >([]);
+  const [dynMembers, setDynMembers] = useState<
+    Array<{
+      id?: string;
+      name: string;
+      email: string;
+      role: string;
+      status: string;
+      joined: string;
+    }>
+  >([]);
+  const [loading, setLoading] = useState(false);
+
   // Feedback tab states
   const [sentimentFilter, setSentimentFilter] = useState<"ALL" | "POSITIVE" | "NEUTRAL" | "NEGATIVE">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        setLoading(true);
+        // Load Org info
+        const orgRes = await fetchFromApi("/api/organization").catch(() => null);
+        if (orgRes?.organization) {
+          setDynOrg(orgRes.organization);
+        }
+        if (orgRes?.members?.length) {
+          setDynMembers(orgRes.members);
+        }
+
+        // Load Analytics
+        const analyticsRes = await fetchFromApi("/api/analytics").catch(() => null);
+        if (analyticsRes && typeof analyticsRes.total === "number") {
+          setDynStats(analyticsRes);
+        }
+
+        // Load Feedback records
+        const fbRes = await fetchFromApi("/api/feedback").catch(() => null);
+        if (fbRes?.items?.length) {
+          setDynFeedback(fbRes.items);
+        }
+      } catch (err) {
+        console.warn("Dashboard dynamic load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDashboardData();
+  }, []);
 
   // Sample Feedback Data
   const sampleFeedback = [
@@ -88,12 +167,14 @@ export default function DashboardPage() {
     },
   ];
 
-  const filteredFeedback = sampleFeedback.filter((item) => {
+  const activeFeedbackList = dynFeedback.length > 0 ? dynFeedback : sampleFeedback;
+
+  const filteredFeedback = activeFeedbackList.filter((item) => {
     const matchesSentiment = sentimentFilter === "ALL" || item.sentiment === sentimentFilter;
     const matchesSearch =
-      item.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.theme.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.content.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.customer || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.theme || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.content || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSentiment && matchesSearch;
   });
 
@@ -214,7 +295,7 @@ export default function DashboardPage() {
                 <span>AI Insights Q&A</span>
               </Link>
               <Link
-                href="/feedback/new"
+                href="/ai_chat"
                 className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-red-950/60 ring-1 ring-red-500/50 hover:from-red-500 hover:to-red-600 transition-all"
               >
                 <PlusCircle size={14} />
@@ -268,39 +349,39 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <KpiCard
                   title="Total Feedback"
-                  value="2,490"
+                  value={dynStats.total.toLocaleString()}
                   change="+14.2%"
                   changeType="increase"
-                  subtitle="Compared to last week"
+                  subtitle={`${dynOrg.name} feedback`}
                   icon={MessageSquareQuote}
-                  badge="STREAM ACTIVE"
+                  badge="DATABASE LIVE"
                 />
                 <KpiCard
                   title="Positive Sentiment"
-                  value="71.8%"
+                  value={`${dynStats.total > 0 ? Math.round(((dynStats.sentiment.positive || 0) / dynStats.total) * 100) : 72}%`}
                   change="+3.6%"
                   changeType="increase"
-                  subtitle="1,788 positive ratings"
+                  subtitle={`${(dynStats.sentiment.positive || 0).toLocaleString()} positive ratings`}
                   icon={TrendingUp}
                   badge="HEALTHY"
                 />
                 <KpiCard
                   title="Critical Issues"
-                  value="11.4%"
+                  value={`${dynStats.total > 0 ? Math.round(((dynStats.sentiment.negative || 0) / dynStats.total) * 100) : 11}%`}
                   change="-2.1%"
                   changeType="decrease"
-                  subtitle="Down from 13.5%"
+                  subtitle={`${(dynStats.sentiment.negative || 0).toLocaleString()} negative items`}
                   icon={AlertTriangle}
                   badge="ATTENTION"
                 />
                 <KpiCard
-                  title="Avg Resolution"
-                  value="2.8 hrs"
-                  change="-18 min"
+                  title="Active Seats"
+                  value={`${dynMembers.length || 4} / ${dynOrg.seatsTotal}`}
+                  change="Active"
                   changeType="increase"
-                  subtitle="Response latency"
+                  subtitle={`${dynOrg.name} Team`}
                   icon={Clock}
-                  badge="FAST"
+                  badge="TENANT RBAC"
                 />
               </div>
 
@@ -312,33 +393,43 @@ export default function DashboardPage() {
                       <BarChart3 size={18} className="text-red-400" />
                       <h3 className="text-sm font-bold text-white">Sentiment Spectrum Breakdown</h3>
                     </div>
-                    <span className="text-[11px] font-semibold text-zinc-400">Total 2,490 items</span>
+                    <span className="text-[11px] font-semibold text-zinc-400">Total {dynStats.total.toLocaleString()} items</span>
                   </div>
 
                   <div className="mt-5 space-y-4">
-                    <div className="flex h-3 w-full overflow-hidden rounded-full bg-zinc-800">
-                      <div className="h-full bg-emerald-500 transition-all" style={{ width: "72%" }} />
-                      <div className="h-full bg-amber-500 transition-all" style={{ width: "17%" }} />
-                      <div className="h-full bg-red-500 transition-all" style={{ width: "11%" }} />
-                    </div>
+                    {(() => {
+                      const total = dynStats.total || 1;
+                      const posPct = Math.round(((dynStats.sentiment.positive || 0) / total) * 100);
+                      const neuPct = Math.round(((dynStats.sentiment.neutral || 0) / total) * 100);
+                      const negPct = Math.max(0, 100 - posPct - neuPct);
+                      return (
+                        <>
+                          <div className="flex h-3 w-full overflow-hidden rounded-full bg-zinc-800">
+                            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${posPct}%` }} />
+                            <div className="h-full bg-amber-500 transition-all" style={{ width: `${neuPct}%` }} />
+                            <div className="h-full bg-red-500 transition-all" style={{ width: `${negPct}%` }} />
+                          </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-2.5">
-                        <p className="text-xs text-emerald-400 font-semibold">Positive</p>
-                        <p className="text-base font-extrabold text-white mt-0.5">72%</p>
-                        <p className="text-[10px] text-zinc-500">1,792 items</p>
-                      </div>
-                      <div className="rounded-xl border border-amber-500/20 bg-amber-950/20 p-2.5">
-                        <p className="text-xs text-amber-400 font-semibold">Neutral</p>
-                        <p className="text-base font-extrabold text-white mt-0.5">17%</p>
-                        <p className="text-[10px] text-zinc-500">423 items</p>
-                      </div>
-                      <div className="rounded-xl border border-red-500/20 bg-red-950/20 p-2.5">
-                        <p className="text-xs text-red-400 font-semibold">Negative</p>
-                        <p className="text-base font-extrabold text-white mt-0.5">11%</p>
-                        <p className="text-[10px] text-zinc-500">275 items</p>
-                      </div>
-                    </div>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-2.5">
+                              <p className="text-xs text-emerald-400 font-semibold">Positive</p>
+                              <p className="text-base font-extrabold text-white mt-0.5">{posPct}%</p>
+                              <p className="text-[10px] text-zinc-500">{(dynStats.sentiment.positive || 0).toLocaleString()} items</p>
+                            </div>
+                            <div className="rounded-xl border border-amber-500/20 bg-amber-950/20 p-2.5">
+                              <p className="text-xs text-amber-400 font-semibold">Neutral</p>
+                              <p className="text-base font-extrabold text-white mt-0.5">{neuPct}%</p>
+                              <p className="text-[10px] text-zinc-500">{(dynStats.sentiment.neutral || 0).toLocaleString()} items</p>
+                            </div>
+                            <div className="rounded-xl border border-red-500/20 bg-red-950/20 p-2.5">
+                              <p className="text-xs text-red-400 font-semibold">Negative</p>
+                              <p className="text-base font-extrabold text-white mt-0.5">{negPct}%</p>
+                              <p className="text-[10px] text-zinc-500">{(dynStats.sentiment.negative || 0).toLocaleString()} items</p>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -354,12 +445,12 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mt-4 space-y-2.5">
-                    {[
-                      { theme: "Dashboard Speed & UI", count: 412, sentiment: "Positive (88%)", color: "text-emerald-400" },
-                      { theme: "AI Sentiment Accuracy", count: 320, sentiment: "Positive (94%)", color: "text-emerald-400" },
-                      { theme: "Billing & Tier Options", count: 185, sentiment: "Neutral (56%)", color: "text-amber-400" },
-                      { theme: "Report Export Latency", count: 94, sentiment: "Negative (24%)", color: "text-red-400" },
-                    ].map((item, i) => (
+                    {(dynStats.topThemes && dynStats.topThemes.length > 0 ? dynStats.topThemes : [
+                      { theme: "Dashboard Speed & UI", count: 412 },
+                      { theme: "AI Sentiment Accuracy", count: 320 },
+                      { theme: "Billing & Tier Options", count: 185 },
+                      { theme: "Report Export Latency", count: 94 },
+                    ]).slice(0, 5).map((item, i) => (
                       <div
                         key={i}
                         className="flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-950/50 p-2.5 transition-colors hover:border-red-500/30"
@@ -368,8 +459,8 @@ export default function DashboardPage() {
                           <p className="text-xs font-bold text-zinc-200">{item.theme}</p>
                           <p className="text-[10px] text-zinc-500">{item.count} occurrences detected</p>
                         </div>
-                        <span className={`text-xs font-semibold ${item.color}`}>
-                          {item.sentiment}
+                        <span className="text-xs font-semibold text-red-400">
+                          {item.count} items
                         </span>
                       </div>
                     ))}
@@ -521,7 +612,11 @@ export default function DashboardPage() {
                             <Calendar size={12} /> {report.period}
                           </span>
                         </div>
-                        <h3 className="text-sm font-bold text-white mt-1.5">{report.title}</h3>
+                        <Link href={`/reports/${report.id}`}>
+                          <h3 className="text-sm font-bold text-white mt-1.5 hover:text-red-400 transition-colors hover:underline">
+                            {report.title}
+                          </h3>
+                        </Link>
                         <p className="text-xs text-zinc-400 mt-0.5">
                           Theme: {report.topTheme} • Volume: {report.totalFeedback}
                         </p>
@@ -554,16 +649,16 @@ export default function DashboardPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-6">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-600 to-zinc-900 font-extrabold text-white text-xl shadow-lg shadow-red-950/60 ring-1 ring-red-500/50">
-                      Z
+                      {dynOrg.name.charAt(0)}
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-white">Zidio Development</h2>
-                      <p className="text-xs text-zinc-400">Employee ID: ZIDIOqktTek • Multi-Tenant RBAC</p>
+                      <h2 className="text-xl font-bold text-white">{dynOrg.name}</h2>
+                      <p className="text-xs text-zinc-400">Primary Tenant • {dynOrg.tenantIsolation}</p>
                     </div>
                   </div>
 
                   <span className="rounded-full border border-red-500/30 bg-red-950/30 px-3 py-1 text-xs font-semibold text-red-400 w-fit">
-                    Enterprise Tier
+                    {dynOrg.plan}
                   </span>
                 </div>
 
@@ -573,7 +668,7 @@ export default function DashboardPage() {
                       Tenant Isolation
                     </span>
                     <p className="mt-1 font-bold text-white flex items-center gap-1.5">
-                      <ShieldCheck size={14} className="text-red-500" /> PostgreSQL Multi-Tenant
+                      <ShieldCheck size={14} className="text-red-500" /> {dynOrg.tenantIsolation}
                     </p>
                   </div>
 
@@ -581,14 +676,14 @@ export default function DashboardPage() {
                     <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-semibold">
                       Total Team Seats
                     </span>
-                    <p className="mt-1 font-bold text-white">4 / 20 Active Seats</p>
+                    <p className="mt-1 font-bold text-white">{(dynMembers.length || teamMembers.length)} / {dynOrg.seatsTotal} Active Seats</p>
                   </div>
 
                   <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/50 p-4">
                     <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-semibold">
                       AI Quota Allocation
                     </span>
-                    <p className="mt-1 font-bold text-white">84,200 / 100,000 Tokens</p>
+                    <p className="mt-1 font-bold text-white">{(dynOrg.quotaUsed || 84200).toLocaleString()} / {(dynOrg.quotaTotal || 100000).toLocaleString()} Tokens</p>
                   </div>
                 </div>
               </div>
@@ -617,7 +712,7 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/60">
-                      {teamMembers.map((m, idx) => (
+                      {(dynMembers.length > 0 ? dynMembers : teamMembers).map((m, idx) => (
                         <tr key={idx} className="group hover:bg-zinc-800/20">
                           <td className="py-3 font-medium text-white">
                             <div className="flex items-center gap-2.5">

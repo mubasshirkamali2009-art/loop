@@ -1,5 +1,9 @@
 const dns = require("node:dns");
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
+try {
+  dns.setServers(["1.1.1.1", "8.8.8.8"]);
+} catch {
+  // Ignore in environments where setServers is not supported
+}
 import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";

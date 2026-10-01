@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
   Users,
@@ -10,14 +10,45 @@ import {
   Shield,
   Key,
   CheckCircle2,
-  MoreVertical
+  MoreVertical,
+  Loader2
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import { fetchFromApi } from "@/lib/api";
+
+interface Member {
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  joined: string;
+}
+
+interface OrgData {
+  id: string;
+  name: string;
+  plan: string;
+  tenantIsolation: string;
+  seatsTotal: number;
+  seatsUsed: number;
+  quotaUsed: number;
+  quotaTotal: number;
+}
 
 export default function OrganizationPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const teamMembers = [
+  const [loading, setLoading] = useState(true);
+  const [org, setOrg] = useState<OrgData>({
+    id: "default",
+    name: "Zidio Development",
+    plan: "Enterprise Tier",
+    tenantIsolation: "Strict Multi-Tenant Database Isolation",
+    seatsTotal: 20,
+    seatsUsed: 4,
+    quotaUsed: 84200,
+    quotaTotal: 100000,
+  });
+  const [teamMembers, setTeamMembers] = useState<Member[]>([
     {
       name: "Sheikh Siam",
       email: "siam@zidio.dev",
@@ -46,7 +77,26 @@ export default function OrganizationPage() {
       status: "Invited",
       joined: "Pending",
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    async function loadOrgData() {
+      try {
+        const data = await fetchFromApi("/api/organization");
+        if (data.organization) {
+          setOrg(data.organization);
+        }
+        if (data.members && data.members.length > 0) {
+          setTeamMembers(data.members);
+        }
+      } catch (err) {
+        console.warn("Using default organization fallback:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadOrgData();
+  }, []);
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] bg-zinc-950 text-zinc-100">
@@ -73,7 +123,7 @@ export default function OrganizationPage() {
 
             <button
               onClick={() => alert("Invite team member modal")}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-red-950/60 ring-1 ring-red-500/50 hover:from-red-500 hover:to-red-600 transition-all cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-red-950/60 ring-1 ring-red-500/50 hover:from-red-500 hover:to-red-600 transition-all cursor-pointer w-fit"
             >
               <UserPlus size={15} />
               <span>Invite Member</span>
@@ -85,17 +135,17 @@ export default function OrganizationPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-6">
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-600 to-zinc-900 font-extrabold text-white text-xl shadow-lg shadow-red-950/60 ring-1 ring-red-500/50">
-                  Z
+                  {org.name.charAt(0)}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Zidio Development</h2>
-                  <p className="text-xs text-zinc-400">Employee ID: ZIDIOqktTek • Primary Tenant</p>
+                  <h2 className="text-xl font-bold text-white">{org.name}</h2>
+                  <p className="text-xs text-zinc-400">Tenant ID: {org.id.slice(0, 12)} • Primary Tenant</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="rounded-full border border-red-500/30 bg-red-950/30 px-3 py-1 text-xs font-semibold text-red-400">
-                  Enterprise Tier
+                  {org.plan}
                 </span>
               </div>
             </div>
@@ -106,7 +156,7 @@ export default function OrganizationPage() {
                   Tenant Isolation
                 </span>
                 <p className="mt-1 font-bold text-white flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-red-500" /> PostgreSQL Multi-Tenant
+                  <ShieldCheck size={14} className="text-red-500" /> {org.tenantIsolation}
                 </p>
               </div>
 
@@ -114,14 +164,14 @@ export default function OrganizationPage() {
                 <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-semibold">
                   Total Team Seats
                 </span>
-                <p className="mt-1 font-bold text-white">4 / 20 Active Seats</p>
+                <p className="mt-1 font-bold text-white">{teamMembers.length} / {org.seatsTotal} Active Seats</p>
               </div>
 
               <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/50 p-4">
                 <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-semibold">
                   AI Quota Allocation
                 </span>
-                <p className="mt-1 font-bold text-white">84,200 / 100,000 Tokens</p>
+                <p className="mt-1 font-bold text-white">{org.quotaUsed.toLocaleString()} / {org.quotaTotal.toLocaleString()} Tokens</p>
               </div>
             </div>
           </div>
