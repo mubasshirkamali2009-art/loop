@@ -5,6 +5,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { headers } from "next/headers";
+import { ObjectId } from "mongodb";
 
 export interface SessionUser {
   id: string;
@@ -44,9 +45,18 @@ export async function getUserMembership(userId: string): Promise<OrgMembership |
     if (!membership) return null;
 
     const orgId = membership.organizationId;
+
+    let orgObjectId: ObjectId | null = null;
+    try {
+      orgObjectId = new ObjectId(orgId);
+    } catch {
+      // orgId is not a valid ObjectId string
+    }
+
+    const orgFilter = orgObjectId ? { _id: orgObjectId } : { _id: orgId as unknown as ObjectId };
     const org =
-      (await db.collection("organizations").findOne({ _id: orgId })) ||
-      (await db.collection("organization").findOne({ _id: orgId }));
+      (await db.collection("organizations").findOne(orgFilter)) ||
+      (await db.collection("organization").findOne(orgFilter));
 
     return {
       organizationId: String(membership.organizationId),

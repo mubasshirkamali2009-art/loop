@@ -16,9 +16,19 @@ export async function GET() {
     }
 
     const orgId = membership.organizationId;
+
+    // Try to find org using ObjectId first, fall back to string _id for backward compatibility
+    let orgObjectId: ObjectId | null = null;
+    try {
+      orgObjectId = new ObjectId(orgId);
+    } catch {
+      // orgId is not a valid ObjectId string, will search by string
+    }
+
+    const orgFilter = orgObjectId ? { _id: orgObjectId } : { _id: orgId as unknown as ObjectId };
     const org =
-      (await db.collection("organizations").findOne({ _id: orgId })) ||
-      (await db.collection("organization").findOne({ _id: orgId }));
+      (await db.collection("organizations").findOne(orgFilter)) ||
+      (await db.collection("organization").findOne(orgFilter));
 
     const members = await db
       .collection("member")

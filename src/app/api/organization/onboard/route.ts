@@ -17,9 +17,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Organization name is required" }, { status: 400 });
     }
 
-    const orgId = new ObjectId().toString();
+    const orgObjectId = new ObjectId();
+    const orgId = orgObjectId.toString();
     const org = {
-      _id: orgId,
+      _id: orgObjectId,
       name,
       createdAt: new Date(),
       plan: "standard",
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
 
     // Create member mapping
     await db.collection("member").insertOne({
-      _id: new ObjectId().toString(),
+      _id: new ObjectId(),
       userId: user.id,
       organizationId: orgId,
       role: "owner",
