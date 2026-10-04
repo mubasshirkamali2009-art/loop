@@ -20,7 +20,17 @@ function cleanEnv(value: string | undefined): string | undefined {
 
 const isProd = process.env.NODE_ENV === "production";
 
-const baseURL = cleanEnv(process.env.BETTER_AUTH_URL) ?? "http://localhost:3000";
+// Auto-detect production URL on Vercel if BETTER_AUTH_URL is not set or set to localhost
+const detectedVercelURL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : undefined;
+
+const envBaseURL = cleanEnv(process.env.BETTER_AUTH_URL);
+const baseURL = (isProd && envBaseURL && !envBaseURL.includes("localhost"))
+  ? envBaseURL
+  : (detectedVercelURL ?? envBaseURL ?? "http://localhost:3000");
 
 const secret = cleanEnv(process.env.BETTER_AUTH_SECRET);
 if (!secret && isProd) {
@@ -51,9 +61,29 @@ const db = client.db("loop");
 const googleClientId = cleanEnv(process.env.GOOGLE_CLIENT_ID);
 const googleClientSecret = cleanEnv(process.env.GOOGLE_CLIENT_SECRET);
 
+// Trusted origins for better-auth
+const trustedOrigins: string[] = [
+  "http://localhost:3000",
+  "https://*.vercel.app",
+  "https://loop-seven-pink.vercel.app",
+];
+if (baseURL && !trustedOrigins.includes(baseURL)) {
+  trustedOrigins.push(baseURL);
+}
+if (process.env.NEXT_PUBLIC_APP_URL) {
+  trustedOrigins.push(process.env.NEXT_PUBLIC_APP_URL);
+}
+if (process.env.VERCEL_URL) {
+  trustedOrigins.push(`https://${process.env.VERCEL_URL}`);
+}
+if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+  trustedOrigins.push(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+}
+
 export const auth = betterAuth({
   secret: secret ?? "dev_only_secret_change_me_32_chars_min",
   baseURL,
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
   },
